@@ -1,6 +1,7 @@
 import { getPosts } from "@/lib/posts";
 import TweetCard from "@/components/TweetCard";
 import Link from "next/link";
+import NoteForm from "@/components/NoteForm";
 
 export default async function Home() {
 
@@ -14,6 +15,8 @@ export default async function Home() {
                     <TweetCard post={post}/>
                 </Link>
             ))}
+
+            <NoteForm />
         </main>
     );
 }
