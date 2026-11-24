@@ -1,60 +1,32 @@
+import { makeSureDbIsReady } from "@/lib/db";
+import { Tweet } from "@/models/Tweet";
 
-import { NextResponse, type NextRequest } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-
-type Tweet = {
-    id: string;
-    text: string;
-    createdAt: string;
-};
-
-const filePath = path.join(process.cwd(), "tweets.json");
-
-async function readTweets(): Promise<Tweet[]> {
-    try {
-        const data = await fs.readFile(filePath, "utf8");
-        return JSON.parse(data) as Tweet[];
-    } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-            return [];
-        }
-
-        throw err;
-    }
-}
-
+// GET /api/tweets  →  return all tweets, newest first
 export async function GET() {
-    const tweets = await readTweets();
-    return NextResponse.json(tweets);
-}
-
-export async function POST(request: NextRequest) {
-    const body: { text?: string } = await request.json();
-    const text = body.text?.trim();
-
-    if (!text || text.length > 280) {
-        return NextResponse.json(
-            { error: "Tweet must contain 1-280 characters" },
-            { status: 400 }
-        );
+    await makeSureDbIsReady();
+    try {
+        const tweets = await Tweet.find({}).sort({ createdAt: -1 });
+        return Response.json(tweets);
+    } catch (error) {
+        return Response.json({ error: "Error fetching tweets" }, { status: 500 });
     }
-
-    const tweets = await readTweets();
-
-    const newTweet: Tweet = {
-        id: randomUUID(),
-        text,
-        createdAt: new Date().toISOString(),
-    };
-
-    await fs.writeFile(
-        filePath,
-        JSON.stringify([newTweet, ...tweets], null, 2),
-        "utf8"
-    );
-
-    return NextResponse.json(newTweet, { status: 201 });
 }
 
+// POST /api/tweets  →  create a new tweet
+export async function POST(request: Request) {
+    await makeSureDbIsReady();
+    const body: { content?: string; author?: string } = await request.json();
+    try {
+        // We pick the fields ourselves, so nobody can sneak in e.g. upvotes: 9999
+        const tweet = await Tweet.create({
+            content: body.content,
+            author: body.author,
+        });
+        return Response.json(tweet, { status: 201 });
+    } catch (error) {
+        // e.g. content missing or too long → Mongoose validation error
+        const message =
+            error instanceof Error ? error.message : "Error creating tweet";
+        return Response.json({ error: message }, { status: 400 });
+    }
+}

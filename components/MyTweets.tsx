@@ -4,8 +4,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 type Tweet = {
-    id: string;
-    text: string;
+    _id: string;
+    content: string;
+    author: string;
+    upvotes: number;
+    downvotes: number;
     createdAt: string;
 };
 
@@ -48,7 +51,7 @@ export default function MyTweets() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ text }),
+                body: JSON.stringify({ content: text }),
             });
 
             if (!response.ok) {
@@ -63,6 +66,32 @@ export default function MyTweets() {
             setError("Could not save tweet");
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function voteTweet(id: string, type: "up" | "down") {
+        try {
+            const response = await fetch(`/api/tweets/${id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ type }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Could not vote");
+            }
+
+            const updatedTweet: Tweet = await response.json();
+
+            setTweets((previous) =>
+                previous.map((tweet) =>
+                    tweet._id === id ? updatedTweet : tweet
+                )
+            );
+        } catch {
+            setError("Could not vote");
         }
     }
 
@@ -92,11 +121,29 @@ export default function MyTweets() {
 
             <div className="mt-5 space-y-3">
                 {tweets.map((tweet) => (
-                    <article key={tweet.id} className="rounded border p-3">
-                        <p className="whitespace-pre-wrap">{tweet.text}</p>
+                    <article key={tweet._id} className="rounded border p-3">
+                        <p className="whitespace-pre-wrap">{tweet.content}</p>
                         <small className="opacity-60">
                             {new Date(tweet.createdAt).toLocaleString()}
                         </small>
+
+                        <div className="mt-3 flex gap-4">
+                            <button
+                                type="button"
+                                onClick={() => voteTweet(tweet._id, "up")}
+                                className="rounded border px-3 py-1"
+                            >
+                                👍 {tweet.upvotes}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => voteTweet(tweet._id, "down")}
+                                className="rounded border px-3 py-1"
+                            >
+                                👎 {tweet.downvotes}
+                            </button>
+                        </div>
                     </article>
                 ))}
             </div>
